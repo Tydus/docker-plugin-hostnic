@@ -3,7 +3,7 @@ package driver
 import (
 	"fmt"
 	"github.com/docker/go-plugins-helpers/network"
-	"github.com/hashicorp/netlink"
+	"github.com/vishvananda/netlink"
 	"os"
 	"path"
 	"testing"
