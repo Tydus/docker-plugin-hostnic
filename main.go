@@ -38,7 +38,7 @@ func Run(ctx *cli.Context) {
 	d, err := driver.New()
 	if err == nil {
 		h := network.NewHandler(d)
-		err = h.ServeUnix("root", "hostnic")
+		err = h.ServeUnix("hostnic", 0)
 	}
 	if err != nil {
 		log.Fatal("Run app error: %s", err.Error())
