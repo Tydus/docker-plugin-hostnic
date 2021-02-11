@@ -135,8 +135,14 @@ func (d *HostNicDriver) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 
 	var hostNic *HostNic
 
-	if r.Interface.MacAddress == "" {
-		return nil, fmt.Errorf("Please set --mac-address argument. Request interface [%+v] ", r.Interface)
+	if r.Interface.MacAddress == ""  {
+		//Support parameters in driver-opt.
+		//It is used when the interface is connected to the container after container has been created.
+	        if r.Options["mac-address"].(string) == "" {
+		        return nil, fmt.Errorf("Please set --mac-address argument. Request interface [%+v] ", r.Interface)
+	        } else {
+			r.Interface.MacAddress = r.Options["mac-address"].(string)
+		}
 	}
 
 	hostNic = d.FindNicByHardwareAddr(r.Interface.MacAddress)
