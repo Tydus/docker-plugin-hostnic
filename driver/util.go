@@ -1,7 +1,7 @@
 package driver
 
 import (
-	"github.com/yunify/docker-plugin-hostnic/log"
+	"github.com/Tydus/docker-plugin-hostnic/log"
 	"net"
 	"os"
 )
@@ -9,7 +9,7 @@ import (
 func GetInterfaceIPAddr(ifi net.Interface) string {
 	addrs, err := ifi.Addrs()
 	if err != nil {
-		log.Error("Get interface [%+v] addr error: %s", ifi, err.Error())
+		log.Error("Get interface [%+v] address error: %s", ifi, err.Error())
 		return ""
 	}
 	for _, addr := range addrs {
