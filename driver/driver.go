@@ -93,7 +93,7 @@ func (d *HostNicDriver) CreateNetwork(r *network.CreateNetworkRequest) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if r.IPv4Data == nil || len(r.IPv4Data) == 0 {
-		return fmt.Errorf("Network gateway config miss.")
+		return fmt.Errorf("Invalid --gateway parameter.")
 	}
 	ipv4Data := r.IPv4Data[0]
 	err := d.RegisterNetwork(r.NetworkID, ipv4Data)
@@ -139,7 +139,7 @@ func (d *HostNicDriver) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 		//Support parameters in driver-opt.
 		//It is used when the interface is connected to the container after container has been created.
 	        if r.Options["mac-address"].(string) == "" {
-		        return nil, fmt.Errorf("Please set --mac-address argument. Request interface [%+v] ", r.Interface)
+		        return nil, fmt.Errorf("Please specify --mac-address argument. Request interface [%+v] ", r.Interface)
 	        } else {
 			r.Interface.MacAddress = r.Options["mac-address"].(string)
 		}
@@ -152,7 +152,7 @@ func (d *HostNicDriver) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 	}
 
 	if hostNic.endpoint != nil {
-		return nil, fmt.Errorf("Host nic [%s] has bind to endpoint [ %+v ] ", hostNic.Name, hostNic.endpoint)
+		return nil, fmt.Errorf("Host nic [%s] has already bound to endpoint [ %+v ] ", hostNic.Name, hostNic.endpoint)
 	}
 
 	hostNic.Address = r.Interface.Address
@@ -190,7 +190,7 @@ func (d *HostNicDriver) EndpointInfo(r *network.InfoRequest) (*network.InfoRespo
 
 	endpoint := nw.endpoints[r.EndpointID]
 	if endpoint == nil {
-		return nil, fmt.Errorf("Cannot find endpoint by id: %s", r.EndpointID)
+		return nil, fmt.Errorf("Cannot find endpoint [ %s ].", r.EndpointID)
 	}
 
 	value := make(map[string]string)
@@ -217,15 +217,15 @@ func (d *HostNicDriver) Join(r *network.JoinRequest) (*network.JoinResponse, err
 
 	endpoint := nw.endpoints[r.EndpointID]
 	if endpoint == nil {
-		return nil, fmt.Errorf("Cannot find endpoint by id: %s", r.EndpointID)
+		return nil, fmt.Errorf("Cannot find endpoint [ %s ].", r.EndpointID)
 	}
 
 	if endpoint.sandboxKey != "" {
-		return nil, fmt.Errorf("Endpoint [%s] has bean bind to sandbox [%s]", r.EndpointID, endpoint.sandboxKey)
+		return nil, fmt.Errorf("Endpoint [ %s ] has been bound to sandbox [ %s ]", r.EndpointID, endpoint.sandboxKey)
 	}
 	gw, _, err := net.ParseCIDR(nw.IPv4Data.Gateway)
 	if err != nil {
-		return nil, fmt.Errorf("Parse gateway [%s] error: %s", nw.IPv4Data.Gateway, err.Error())
+		return nil, fmt.Errorf("Parse gateway [ %s ] error: %s", nw.IPv4Data.Gateway, err.Error())
 	}
 	endpoint.sandboxKey = r.SandboxKey
 	resp := network.JoinResponse{
@@ -249,7 +249,7 @@ func (d *HostNicDriver) Leave(r *network.LeaveRequest) error {
 
 	endpoint := nw.endpoints[r.EndpointID]
 	if endpoint == nil {
-		return fmt.Errorf("Cannot find endpoint by id: %s", r.EndpointID)
+		return fmt.Errorf("Cannot find endpoint [ %s ].", r.EndpointID)
 	}
 
 	endpoint.sandboxKey = ""
@@ -267,7 +267,7 @@ func (d *HostNicDriver) DeleteEndpoint(r *network.DeleteEndpointRequest) error {
 
 	endpoint := nw.endpoints[r.EndpointID]
 	if endpoint == nil {
-		return fmt.Errorf("Cannot find endpoint by id: %s", r.EndpointID)
+		return fmt.Errorf("Cannot find endpoint [ %s ].", r.EndpointID)
 	}
 	delete(nw.endpoints, r.EndpointID)
 	endpoint.hostNic.endpoint = nil
@@ -309,7 +309,7 @@ func (d *HostNicDriver) findNicFromInterfaces(hardwareAddr string) *HostNic {
 			}
 		}
 	} else {
-		log.Error("Get Interfaces error:%s", err.Error())
+		log.Error("Get Interfaces error: %s", err.Error())
 	}
 	return nil
 }
@@ -324,7 +324,7 @@ func (d *HostNicDriver) findNicFromLinks(hardwareAddr string) *HostNic {
 			}
 		}
 	} else {
-		log.Error("Get LinkList error:%s", err.Error())
+		log.Error("Get LinkList error: %s", err.Error())
 	}
 	return nil
 }
@@ -333,7 +333,7 @@ func (d *HostNicDriver) FindNicByHardwareAddr(hardwareAddr string) *HostNic {
 	for _, nic := range d.nics {
 		//ensure nic in cache is exist on host.
 		if !d.ensureNic(nic) {
-			log.Info("Delete nic [%+v] to nic talbe", nic)
+			log.Info("Delete nic [%+v] from nic table.", nic)
 			delete(d.nics, nic.HardwareAddr)
 			continue
 		}
@@ -346,7 +346,7 @@ func (d *HostNicDriver) FindNicByHardwareAddr(hardwareAddr string) *HostNic {
 		nic = d.findNicFromLinks(hardwareAddr)
 	}
 	if nic != nil {
-		log.Info("Add nic [%+v] to nic talbe ", nic)
+		log.Info("Add nic [%+v] to nic table.", nic)
 		d.nics[nic.HardwareAddr] = nic
 	}
 	return nic
@@ -381,7 +381,7 @@ func (d *HostNicDriver) loadConfig() error {
 		if err != nil {
 			return err
 		}
-		log.Info("Load config from [%s]", configFile)
+		log.Info("Load config from [%s].", configFile)
 		for _, nw := range networks {
 			d.RegisterNetwork(nw.ID, nw.IPv4Data)
 		}
@@ -400,6 +400,6 @@ func (d *HostNicDriver) saveConfig() error {
 	if err != nil {
 		return err
 	}
-	log.Debug("Save config [%+v] to [%s]", d.networks, configFile)
+	log.Debug("Save config [%+v] to [%s].", d.networks, configFile)
 	return nil
 }
