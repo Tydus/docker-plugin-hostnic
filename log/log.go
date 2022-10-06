@@ -20,8 +20,6 @@ type LogFormatter struct {
 }
 
 func (c *LogFormatter) Format(entry *log.Entry) ([]byte, error) {
-	timestamp := time.Now().Format(time.RFC3339)
-	hostname, _ := os.Hostname()
 	return []byte(fmt.Sprintf("%s %s\n", strings.ToUpper(entry.Level.String()), entry.Message)), nil
 }
 
