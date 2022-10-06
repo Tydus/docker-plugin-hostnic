@@ -1,4 +1,4 @@
-module github.com/yunify/docker-plugin-hostnic
+module github.com/Tydus/docker-plugin-hostnic
 
 go 1.12
 
