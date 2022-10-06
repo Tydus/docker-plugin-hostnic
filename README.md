@@ -1,8 +1,6 @@
 # docker-plugin-hostnic
 
-docker-plugin-hostnic is a docker network plugin which can binding a host nic to a container (conceptually similar to "PCI-E Passthrough" or "SR-IOV").
-
-It is *not recommended* to run it in container since it may cause dependency problem while restarting docker daemon and make restarting *very slow*.
+docker-plugin-hostnic is a docker network plugin which can bind a host nic to a container (conceptually similar to "PCI-E Passthrough" or "SR-IOV").
 
 ## QuickStart
 
@@ -32,7 +30,8 @@ docker run -it --ip 192.168.1.5 --mac-address 52:54:0e:e5:00:f7 --network networ
 ```
 
 ## Additional Notes:
-
+0. It is **strongly recommended** to run it directly on host (v.s. in a container).
+Otherwise, it may cause dependency problem while restarting docker daemon and make it *very slow* to reboot a server.
 1. If the `--ip` argument is not passed when running container, docker will assign an ip to the container, so please pass the `--ip` argument and ensure that the ip do not conflict with other containers.
 2. Network config persistent is in `/etc/docker/hostnic/config.json`.
-3. If your host only have one nic, please not use this plugin. If you binding the only nic to container, your host will lost network connectivity.
+3. If your host only have one nic, please not use this plugin. If you bind the only nic to a container, your host will lose network connectivity.
