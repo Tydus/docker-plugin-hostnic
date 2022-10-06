@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/docker/go-plugins-helpers/network"
 	"github.com/vishvananda/netlink"
-	"github.com/yunify/docker-plugin-hostnic/log"
+	"github.com/Tydus/docker-plugin-hostnic/log"
 	"io/ioutil"
 	"net"
 	"os"
