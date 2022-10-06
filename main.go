@@ -3,8 +3,8 @@ package main
 import (
 	"github.com/docker/go-plugins-helpers/network"
 	"github.com/urfave/cli"
-	"github.com/yunify/docker-plugin-hostnic/driver"
-	"github.com/yunify/docker-plugin-hostnic/log"
+	"github.com/Tydus/docker-plugin-hostnic/driver"
+	"github.com/Tydus/docker-plugin-hostnic/log"
 	"os"
 )
 
