@@ -15,6 +15,7 @@ go build -o docker-plugin-hostnic main.go
 sudo cp docker-plugin-hostnic /usr/local/sbin
 sudo cp docker-plugin-hostnic.service /etc/systemd/system/
 sudo systemctl daemon-reload
+sudo systemctl enable docker-plugin-hostnic
 sudo systemctl start docker-plugin-hostnic
 ```
 
