@@ -12,8 +12,10 @@ It is *not recommended* to run it in container since it may cause dependency pro
 
 ```bash
 go build -o docker-plugin-hostnic main.go
-cp docker-plugin-hostnic /usr/local/sbin
-(docker-plugin-hostnic &)
+sudo cp docker-plugin-hostnic /usr/local/sbin
+sudo cp docker-plugin-hostnic.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl start docker-plugin-hostnic
 ```
 
 3. Create hostnic network，the subnet and gateway argument should be same as hostnic.
