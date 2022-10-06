@@ -1,0 +1,16 @@
+
+[Unit]
+Description=Docker HostNIC Plugin
+Documentation=https://github.com/Tydus/docker-plugin-hostnic
+After=network.target local-fs.target
+Before=docker.service
+
+[Service]
+ExecStart=/usr/local/sbin/docker-plugin-hostnic -d
+Restart=always
+RestartSec=5
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target
