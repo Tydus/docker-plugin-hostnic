@@ -24,6 +24,7 @@ type HostNic struct {
 	Name         string // e.g., "en0", "lo0", "eth0.100"
 	HardwareAddr string
 	Address      string
+	AddressIPv6  string
 	endpoint     *Endpoint
 }
 
@@ -58,7 +59,8 @@ type Networks map[string]*Network
 
 type Network struct {
 	ID        string
-	IPv4Data  *network.IPAMData
+	Gateway4  string
+	Gateway6  string
 	endpoints map[string]*Endpoint
 }
 
@@ -69,17 +71,21 @@ type HostNicDriver struct {
 	lock     sync.RWMutex
 }
 
-func (d *HostNicDriver) RegisterNetwork(networkID string, ipv4Data *network.IPAMData) error {
-	if nw := d.getNetworkByGateway(ipv4Data.Gateway); nw != nil {
-		return fmt.Errorf("Exist network [%s] with same gateway [%s]", nw.ID, nw.IPv4Data.Gateway)
+func (d *HostNicDriver) RegisterNetwork(networkID string, Gateway4 string, Gateway6 string) error {
+	if nw := d.getNetworkByGateway(Gateway4); nw != nil {
+		return fmt.Errorf("Exist network [%s] has the same ipv4 gateway [%s].", nw.ID, Gateway4)
+	}
+	if nw := d.getNetworkByGateway(Gateway6); nw != nil {
+		return fmt.Errorf("Exist network [%s] has the same ipv6 gateway [%s].", nw.ID, Gateway6)
 	}
 	nw := Network{
-		IPv4Data:  ipv4Data,
 		ID:        networkID,
+		Gateway4:  Gateway4,
+		Gateway6:  Gateway6,
 		endpoints: make(map[string]*Endpoint),
 	}
 	d.networks[networkID] = &nw
-	log.Info("RegisterNetwork [%s] IPv4Data : [ %+v ]", nw.ID, nw.IPv4Data)
+	log.Info("RegisterNetwork [ %s ] Gateway4 : [ %v ] Gateway6 : [ %v ].", nw.ID, nw.Gateway4, nw.Gateway6)
 	return nil
 }
 
@@ -89,14 +95,19 @@ func (d *HostNicDriver) GetCapabilities() (*network.CapabilitiesResponse, error)
 
 func (d *HostNicDriver) CreateNetwork(r *network.CreateNetworkRequest) error {
 	log.Debug("CreateNetwork Called: [ %+v ]", r)
-	log.Debug("CreateNetwork IPv4Data len : [ %v ]", len(r.IPv4Data))
+	log.Debug("CreateNetwork IPv4Data len : [ %v ], IPv6Data len : [ %v ].", len(r.IPv4Data), len(r.IPv6Data))
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if r.IPv4Data == nil || len(r.IPv4Data) == 0 {
 		return fmt.Errorf("Invalid --gateway parameter.")
 	}
-	ipv4Data := r.IPv4Data[0]
-	err := d.RegisterNetwork(r.NetworkID, ipv4Data)
+	gw4 := net.ParseIP(nw.IPv4Data.Gateway)
+
+	gw6 := nil
+	if r.IPv6Data != nil || len(r.IPv4Data) > 0 {
+		gw6 = net.ParseIP(nw.IPv6Data.Gateway)
+	}
+	err := d.RegisterNetwork(r.NetworkID, gw4, gw6)
 	if err != nil {
 		return err
 	}
@@ -138,24 +149,25 @@ func (d *HostNicDriver) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 	if r.Interface.MacAddress == ""  {
 		//Support parameters in driver-opt.
 		//It is used when the interface is connected to the container after container has been created.
-	        if r.Options["mac-address"].(string) == "" {
-		        return nil, fmt.Errorf("Please specify --mac-address argument. Request interface [%+v] ", r.Interface)
-	        } else {
-			r.Interface.MacAddress = r.Options["mac-address"].(string)
-		}
+		r.Interface.MacAddress = r.Options["mac-address"].(string)
+	}
+
+	if r.Interface.MacAddress == ""  {
+		return nil, fmt.Errorf("Missing --mac-address argument.")
 	}
 
 	hostNic = d.FindNicByHardwareAddr(r.Interface.MacAddress)
 
 	if hostNic == nil {
-		return nil, fmt.Errorf("Can not find host nic by mac address [%+v] ", r.Interface.MacAddress)
+		return nil, fmt.Errorf("Can not find host nic by mac address [ %+v ].", r.Interface.MacAddress)
 	}
 
 	if hostNic.endpoint != nil {
-		return nil, fmt.Errorf("Host nic [%s] has already bound to endpoint [ %+v ] ", hostNic.Name, hostNic.endpoint)
+		return nil, fmt.Errorf("Host nic [%s] has already bound to endpoint [ %+v ].", hostNic.Name, hostNic.endpoint)
 	}
 
 	hostNic.Address = r.Interface.Address
+	hostNic.AddressIPv6 = r.Interface.AddressIPv6
 	hostIfName := hostNic.Name
 	endpoint := &Endpoint{}
 
@@ -168,12 +180,15 @@ func (d *HostNicDriver) CreateEndpoint(r *network.CreateEndpointRequest) (*netwo
 	hostNic.endpoint = endpoint
 
 	endpointInterface := &network.EndpointInterface{}
-	if r.Interface.Address == "" {
-		endpointInterface.Address = hostNic.Address
-	}
-	if r.Interface.MacAddress == "" {
-		endpointInterface.MacAddress = hostNic.HardwareAddr
-	}
+	// if r.Interface.Address == "" {
+	// 	endpointInterface.Address = hostNic.Address
+	// }
+	// if r.Interface.AddressIPv6 == "" {
+	// 	endpointInterface.AddressIPv6 = hostNic.AddressIPv6
+	// }
+	// if r.Interface.MacAddress == "" {
+	// 	endpointInterface.MacAddress = hostNic.HardwareAddr
+	// }
 	resp := &network.CreateEndpointResponse{Interface: endpointInterface}
 	log.Debug("CreateEndpoint resp interface: [ %+v ] ", resp.Interface)
 	return resp, nil
@@ -198,6 +213,7 @@ func (d *HostNicDriver) EndpointInfo(r *network.InfoRequest) (*network.InfoRespo
 	value["srcName"] = endpoint.srcName
 	value["hostNic.Name"] = endpoint.hostNic.Name
 	value["hostNic.Addr"] = endpoint.hostNic.Address
+	value["hostNic.Addrv6"] = endpoint.hostNic.AddressIPv6
 	value["hostNic.HardwareAddr"] = endpoint.hostNic.HardwareAddr
 	resp := &network.InfoResponse{
 		Value: value,
@@ -223,15 +239,13 @@ func (d *HostNicDriver) Join(r *network.JoinRequest) (*network.JoinResponse, err
 	if endpoint.sandboxKey != "" {
 		return nil, fmt.Errorf("Endpoint [ %s ] has been bound to sandbox [ %s ]", r.EndpointID, endpoint.sandboxKey)
 	}
-	gw, _, err := net.ParseCIDR(nw.IPv4Data.Gateway)
-	if err != nil {
-		return nil, fmt.Errorf("Parse gateway [ %s ] error: %s", nw.IPv4Data.Gateway, err.Error())
-	}
+
 	endpoint.sandboxKey = r.SandboxKey
 	resp := network.JoinResponse{
 		InterfaceName:         network.InterfaceName{SrcName: endpoint.srcName, DstPrefix: containerVethPrefix},
 		DisableGatewayService: false,
-		Gateway:               gw.String(),
+		Gateway:               nw.Gateway4,
+		GatewayIPv6:           nw.Gateway6,
 	}
 
 	log.Debug("Join resp : [ %+v ]", resp)
@@ -293,7 +307,7 @@ func (d *HostNicDriver) RevokeExternalConnectivity(r *network.RevokeExternalConn
 
 func (d *HostNicDriver) getNetworkByGateway(gateway string) *Network {
 	for _, nw := range d.networks {
-		if nw.IPv4Data.Gateway == gateway {
+		if nw.Gateway4 == gateway || nw.Gateway6 == gateway {
 			return nw
 		}
 	}
@@ -305,7 +319,7 @@ func (d *HostNicDriver) findNicFromInterfaces(hardwareAddr string) *HostNic {
 	if err == nil {
 		for _, nic := range nics {
 			if nic.HardwareAddr.String() == hardwareAddr {
-				return &HostNic{Name: nic.Name, HardwareAddr: nic.HardwareAddr.String(), Address: GetInterfaceIPAddr(nic)}
+				return &HostNic{Name: nic.Name, HardwareAddr: nic.HardwareAddr.String()}
 			}
 		}
 	} else {
