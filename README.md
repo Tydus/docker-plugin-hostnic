@@ -2,6 +2,8 @@
 
 docker-plugin-hostnic is a docker network plugin which can bind a host nic to a container (conceptually similar to "PCI-E Passthrough" or "SR-IOV").
 
+<img src="https://www.ipv6ready.org/imgs/IPv6_ready_logo_phase2-8bit.png" width="100" />
+
 ## QuickStart
 
 1. Make sure you are using Docker 1.9 or later (test with 20.10.18)
@@ -20,10 +22,13 @@ sudo systemctl start docker-plugin-hostnic
 3. Create hostnic network，the subnet and gateway argument should be same as hostnic.
 
 ```bash
-docker network create -d hostnic --subnet=192.168.1.0/24 --gateway 192.168.1.1 network1
+docker network create -d hostnic \
+--subnet=192.168.1.0/24 --gateway 192.168.1.1 --ip-range 192.168.1.128/25 \
+--ipv6 --subnet 2001:db8::/64 --gateway 2001:db8:0::ffff \
+network1
 ```
 
-4. Run a container and binding a special hostnic. We use `--mac-address` argument to identify the hostnic. Please ensure that the `--ip` argument do not conflict with other container in the same network.
+4. Run a container and binding a special host nic. We use `--mac-address` argument to identify the hostnic. Please ensure that the `--ip` argument do not conflict with other container in the same network.
 
 ```bash
 docker run -it --ip 192.168.1.5 --mac-address 52:54:0e:e5:00:f7 --network network1 ubuntu:22.04 bash
