@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"strings"
 )
 
 const (
@@ -95,18 +96,21 @@ func (d *HostNicDriver) GetCapabilities() (*network.CapabilitiesResponse, error)
 
 func (d *HostNicDriver) CreateNetwork(r *network.CreateNetworkRequest) error {
 	log.Debug("CreateNetwork Called: [ %+v ]", r)
-	log.Debug("CreateNetwork IPv4Data len : [ %v ], IPv6Data len : [ %v ].", len(r.IPv4Data), len(r.IPv6Data))
+	log.Debug("IPv4Data len : [ %v ], IPv6Data len : [ %v ].", len(r.IPv4Data), len(r.IPv6Data))
+	log.Debug("Options : [ %v ], enable_ipv6 : [ %v ].", r.Options, r.Options["com.docker.network.enable_ipv6"])
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	if r.IPv4Data == nil || len(r.IPv4Data) == 0 {
-		return fmt.Errorf("Invalid --gateway parameter.")
-	}
-	gw4 := net.ParseIP(nw.IPv4Data.Gateway)
 
-	gw6 := nil
-	if r.IPv6Data != nil || len(r.IPv4Data) > 0 {
-		gw6 = net.ParseIP(nw.IPv6Data.Gateway)
+	var gw4 string
+	if r.IPv4Data != nil && len(r.IPv4Data) != 0 && r.IPv4Data[0].Gateway != "" {
+		gw4 = strings.Split(r.IPv4Data[0].Gateway, "/")[0]
 	}
+
+	var gw6 string
+	if r.IPv4Data != nil && len(r.IPv6Data) != 0 && r.IPv6Data[0].Gateway != "" {
+		gw6 = strings.Split(r.IPv6Data[0].Gateway, "/")[0]
+	}
+
 	err := d.RegisterNetwork(r.NetworkID, gw4, gw6)
 	if err != nil {
 		return err
@@ -397,7 +401,7 @@ func (d *HostNicDriver) loadConfig() error {
 		}
 		log.Info("Load config from [%s].", configFile)
 		for _, nw := range networks {
-			d.RegisterNetwork(nw.ID, nw.IPv4Data)
+			d.RegisterNetwork(nw.ID, nw.Gateway4, nw.Gateway6)
 		}
 	}
 	return nil
