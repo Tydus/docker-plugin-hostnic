@@ -25,20 +25,48 @@ sudo systemctl start docker-plugin-hostnic
 docker network create -d hostnic \
 -o niclist=eth1,eth3 \
 --subnet=192.168.1.0/24 --gateway 192.168.1.1 --ip-range 192.168.1.128/25 \
---ipv6 --subnet 2001:db8::/64 --gateway 2001:db8:0::ffff \
+--ipv6 --subnet 2001:db8::/64 --gateway 2001:db8::ffff \
 network1
 ```
 
-4. Run a container and binding an nic in the pool.
+4. Run a container and bind an nic in the pool.
 
 ```bash
-docker run -it --mac-address 52:54:0e:e5:00:f7 --network network1 ubuntu:22.04 bash
+docker run -it --network network1 ubuntu:22.04 bash
 ```
 
 If the `--mac-address` argument is specified, the plugin will try to find the specific nic in the pool that matches the mac address, and fail if it's not available.
 
 ```bash
 docker run -it --ip 192.168.1.135 --mac-address 52:54:0e:e5:00:f7 --network network1 ubuntu:22.04 bash
+```
+
+## Example Compose file
+```yaml
+networks:
+  network1:
+    name: network1
+    driver: hostnic
+    driver_opts:
+      niclist: "eth1,eth3"
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+      - subnet: 192.168.1.0/24
+        gateway: 192.168.1.1
+        ip_range: 192.168.1.128/25
+      - subnet: 2001:db8::/64
+        gateway: 2001:db8::ffff
+
+services:
+  test1:
+    image: ubuntu:22.04
+    networks:
+      network1:
+        ipv4_address: 192.168.1.139
+        # ipv6 address will be assigned automatically since not specified.
+    dns: 8.8.8.8
 ```
 
 ## Additional Notes:
