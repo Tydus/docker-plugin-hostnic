@@ -19,24 +19,30 @@ sudo systemctl enable docker-plugin-hostnic
 sudo systemctl start docker-plugin-hostnic
 ```
 
-3. Create hostnic network，the subnet and gateway argument should be same as hostnic.
+3. Create hostnic network with a list of candidate nics (specified by `-o niclist=eth1,eth3`).
 
 ```bash
 docker network create -d hostnic \
+-o niclist=eth1,eth3 \
 --subnet=192.168.1.0/24 --gateway 192.168.1.1 --ip-range 192.168.1.128/25 \
 --ipv6 --subnet 2001:db8::/64 --gateway 2001:db8:0::ffff \
 network1
 ```
 
-4. Run a container and binding a special host nic. We use `--mac-address` argument to identify the hostnic. Please ensure that the `--ip` argument do not conflict with other container in the same network.
+4. Run a container and binding an nic in the pool.
 
 ```bash
-docker run -it --ip 192.168.1.5 --mac-address 52:54:0e:e5:00:f7 --network network1 ubuntu:22.04 bash
+docker run -it --mac-address 52:54:0e:e5:00:f7 --network network1 ubuntu:22.04 bash
+```
+
+If the `--mac-address` argument is specified, the plugin will try to find the specific nic in the pool that matches the mac address, and fail if it's not available.
+
+```bash
+docker run -it --ip 192.168.1.135 --mac-address 52:54:0e:e5:00:f7 --network network1 ubuntu:22.04 bash
 ```
 
 ## Additional Notes:
 0. It is **strongly recommended** to run it directly on host (v.s. in a container).
 Otherwise, it may cause dependency problem while restarting docker daemon and make it *very slow* to reboot a server.
-1. If the `--ip` argument is not passed when running container, docker will assign an ip to the container, so please pass the `--ip` argument and ensure that the ip do not conflict with other containers.
-2. Network config persistent is in `/etc/docker/hostnic/config.json`.
-3. If your host only have one nic, please not use this plugin. If you bind the only nic to a container, your host will lose network connectivity.
+1. Network config is stored in `/etc/docker/hostnic/config.json`.
+2. If your host only have one nic, please not use this plugin. If you bind the only nic to a container, your host will lose network connectivity.
